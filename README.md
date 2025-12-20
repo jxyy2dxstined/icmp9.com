@@ -129,11 +129,21 @@ https://{ICMP9_SERVER_HOST}/{ICMP9_API_KEY}
 
 ### 6. 节点不通的自助排查步骤
 
-**1. 确认cloudflared tunnel是正常状态**
+**1. 检查VPS时间是否正确，如果误差超过30秒，节点会出错**
+
+```bash
+date
+
+```
+- 修正方法：问ai关键词 “linux同步系统时间的shell命令”
+
+**2. 确认cloudflared tunnel是正常状态**
 
 <img height="300" alt="image" src="https://github.com/user-attachments/assets/1d37656d-d923-4d1f-8e63-dae405ffb6f6" /> <br>
 
-**2. 确认icmp9.com放行的IP地址已生效，在部署脚本的VPS执行以下命令**
+- 还需要在浏览器访问隧道域名，检查一下是否能正常打开
+
+**3. 确认icmp9.com放行的IP地址已生效，在部署脚本的VPS执行以下命令**
 
 ```bash
 curl -v https://tunnel.icmp9.com/af
@@ -147,7 +157,7 @@ curl -v https://tunnel.icmp9.com/af
 
 <img height="350" alt="image" src="https://github.com/user-attachments/assets/2ff5064e-40ee-4959-a794-f97d6e7f2e6c" /><br />
 
-**3. 已安装warp服务VPS检查默认优先出站ip地址是否和icmp9.com填写的放行IP地址一致，在部署脚本的VPS执行以下命令**
+**4. 已安装warp服务VPS检查默认优先出站ip地址是否和icmp9.com填写的放行IP地址一致，在部署脚本的VPS执行以下命令**
 
 ```bash
 curl ip.sb
@@ -158,7 +168,7 @@ curl ip.sb
 - 方法1. 用warp脚本调整vps的默认出站IP和icmp9.com放行IP地址一致
 - 方法2. 直接卸载掉warp服务
 
-**4. 填写的优选域名或IP在本地网络不能连通，重走步骤流程，更换其他优选域名或IP**
+**5. 填写的优选域名或IP在本地网络不能连通，重走步骤流程，更换其他优选域名或IP**
 
 ### 感谢
 
