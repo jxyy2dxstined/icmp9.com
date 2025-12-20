@@ -143,6 +143,8 @@ date
 
 - 还需要在浏览器访问隧道域名，检查一下是否能正常打开
 
+<img height="300" src="https://github.com/user-attachments/assets/b1f67880-c479-48d0-a637-e23cf77f91be" /><br />
+
 **3. 确认icmp9.com放行的IP地址已生效，在部署脚本的VPS执行以下命令**
 
 ```bash
