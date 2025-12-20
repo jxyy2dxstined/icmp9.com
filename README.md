@@ -14,6 +14,10 @@
 1. 拥有任意1台有公网IP的VPS，可以是icmp9送的虚机，也可以是其他的， VPS可以是IP双栈，也可以是任意IP单栈(也就是只有ipv4或ipv6都可以)。以下所有脚本命令只需要在这台vps上执行即可
 2. 1个可以在Zero Trust创建隧道的Cloudflare账号
 
+---
+
+## 部署步骤
+
 ### 1.注册icmp9.com 账号，获取API KEY
 
 ![获取获取API KEYl 设置](https://github.com/user-attachments/assets/e55908be-f4e3-4294-aaee-4855fca2f3ec)
@@ -161,4 +165,5 @@ curl ip.sb
 - https://github.com/fscarmen/ArgoX
 
 - https://github.com/fscarmen/client_template
+
 
