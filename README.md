@@ -1,18 +1,31 @@
 # 简单部署流程
 
-### 特色
+## 特色
 
-利用 [icmp9.com](https://icmp9.com/proxy) 提供的免费代理网络，借助1台vps实现落地全球多个国家的网络节点。
+利用 [icmp9.com](https://icmp9.com/proxy) 提供的免费代理网络，借助1台VPS实现落地全球多个国家的网络节点。
 
-### 效果图
+## 效果图
 <img height="300" alt="image" src="https://github.com/user-attachments/assets/3ab617cf-94e4-46fb-ae15-ed219f2a5896" />
 
 <img height="300" alt="image" src="https://github.com/user-attachments/assets/b90eb30c-44f6-42f2-bcc0-a30d737d14ae" />
 
-### 前提条件
+## 前提条件
 
-1. 拥有任意1台有公网IP的VPS，可以是icmp9送的虚机，也可以是其他的， VPS可以是IP双栈，也可以是任意IP单栈(也就是只有ipv4或ipv6都可以)。以下所有脚本命令只需要在这台vps上执行即可
-2. [可选] Cloudflare固定隧道模式，需要1个可以在Zero Trust创建隧道的Cloudflare账号
+1. 拥有 **任意** 1台有公网IP的VPS，部署脚本命令只需要在这台VPS上执行。
+   - VPS系统：支持Debian、Ubuntu、Alpine
+   - VPS类型：支持独立VPS、NAT
+   - VPS网络：支持IP双栈，支持IPv4或IPv6任意IP单栈
+   - VPS性能：
+       - **Alpine**
+           - 内存：大于380m
+           - CPU：大于0.5核心
+           - 硬盘：大于2G
+       - **Debian和Ubuntu**
+           - 内存：大于512m
+           - CPU：大于1核心
+           - 硬盘：大于5G
+
+3. [可选] Cloudflare固定隧道模式，需要1个可以在Zero Trust创建隧道的Cloudflare账号
 
 ---
 
@@ -20,11 +33,11 @@
 
 **🍺 快速体验，可略过以下 [可选] 部署步骤！**
 
-### [必需] 1.注册icmp9.com 账号，获取API KEY
+### [必需] 1.注册 [icmp9.com](https://icmp9.com/) 账号，获取API KEY
 
 ![获取获取API KEYl 设置](https://github.com/user-attachments/assets/e55908be-f4e3-4294-aaee-4855fca2f3ec)
 
-### [必需] 2.放行VPS的IP地址，双栈IP的VPS，IPv4和IPv6地址都要放行
+### [必需] 2.放行VPS的IP地址：单栈VPS仅需放行对应的单个IP地址；双栈VPS需同时放行IPv4和IPv6两个IP地址
 ![放行部署VPS的IP地址](https://github.com/user-attachments/assets/ceb9037d-3bdd-4789-9f71-207e6bc2c094)
 
 ### [可选] 3.使用cloudflare固定隧道模式
@@ -39,13 +52,12 @@
 
 ### [可选] 4.设置swap虚拟内存, 适用于低配置VPS(CPU小于1核，内存小于1G，剩余硬盘空间大于5G)
 
-⚠️ 设置swap成功后需要重启VPS才能生效
-
 ```bash
 bash <(wget -qO- https://ghproxy.lvedong.eu.org/https://raw.githubusercontent.com/nap0o/icmp9.com/main/swap.sh)
 ```
 
-- icmp9.com送的虚机,请务必先设置1G swap虚拟内存,再部署一键脚本
+- ⚠️ 设置swap成功后需要重启VPS才能生效
+- 从icmp9.com官方领取的256m内存的虚机,请务必先设置1G swap虚拟内存,再部署一键脚本
 
 <img height="350" alt="image" src="https://github.com/user-attachments/assets/fe436d79-25b0-4276-81b3-c4c2265fa35d" /><br /> 
 
@@ -57,15 +69,15 @@ bash <(wget -qO- https://ghproxy.lvedong.eu.org/https://raw.githubusercontent.co
 bash <(wget -qO- https://ghproxy.lvedong.eu.org/https://raw.githubusercontent.com/nap0o/icmp9.com/main/install.sh)  
 ```
 
-**cloudflare临时隧道模式执行日志**
+**采用cloudflare临时隧道模式执行日志**
 
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/75562fb9-c507-4e30-a221-563da827b54f" /><br />
 
-**cloudflare固定隧道模式执行日志**
+**采用cloudflare固定隧道模式执行日志**
 
 <img height="600" src="https://github.com/user-attachments/assets/39492198-1853-45f3-97b9-e2a4f7f82d92" /><br />
 
-#### 方式2：Docker run方式
+#### 方式2：Docker run 方式
 
 ```yaml
 docker run -d \
@@ -82,7 +94,7 @@ docker run -d \
   nap0o/icmp9:latest
 ```
 
-#### 方式3：Docker compose方式
+#### 方式3：Docker compose 方式
 
 ```yaml
 services:
@@ -119,7 +131,7 @@ docker logs icmp9
 <img src="https://github.com/user-attachments/assets/843a42f5-5245-4d6b-817b-17464f26c8fa" height="222"><br />
 
 
-**方法2：手动拼接**
+**方法2：手动拼接（不支持cloudflare临时隧道方式部署）**
 
 ```html
 https://{ICMP9_SERVER_HOST}/{ICMP9_API_KEY}
@@ -177,7 +189,7 @@ curl ip.sb
 
 **5. 填写的优选域名或IP在本地网络不能连通，重走步骤流程，更换其他优选域名或IP**
 
-### 感谢
+## 感谢
 
 - https://github.com/fscarmen/ArgoX
 
