@@ -119,7 +119,7 @@ services:
       - ./data/subscribe:/root/subscribe
 ```
 
-#### 方式2：Docker run 方式
+#### 方式3：Docker run 方式
 
 ```yaml
 docker run -d \

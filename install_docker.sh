@@ -38,7 +38,7 @@ fi
 
 API_URL="https://api.icmp9.com/online.php"
 
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_URL")
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -A "Mozilla/5.0" "$API_URL")
 
 if [ "$HTTP_CODE" = "200" ]; then
     info "✅ 可用落地节点 API 连接正常，准备开始部署..."

@@ -77,7 +77,7 @@ info "📡 正在检查 ICMP9 可用落地节点 API 连接状态..."
 
 API_URL="https://api.icmp9.com/online.php"
 
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_URL")
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -A "Mozilla/5.0" "$API_URL")
 
 if [ "$HTTP_CODE" = "200" ]; then
     info "✅ 可用落地节点 API 连接正常，准备开始部署..."
@@ -117,7 +117,6 @@ printf "   [1] 临时隧道 (随机域名，无需配置)\n"
 printf "   [2] 固定隧道 (需要自备域名和Token)\n"
 printf "   请选择 [1/2] (默认: 1): "
 read -r MODE_INPUT
-# sh 兼容写法
 if [ -z "$MODE_INPUT" ]; then MODE_INPUT="1"; fi
 
 if [ "$MODE_INPUT" = "2" ]; then
@@ -132,8 +131,8 @@ if [ "$MODE_INPUT" = "2" ]; then
     done
 else
     TUNNEL_MODE="temp"
-    CLOUDFLARED_DOMAIN="temp-tunnel" 
-    TOKEN="temp-token"               
+    CLOUDFLARED_DOMAIN=""
+    TOKEN=""               
     info "   -> 已选择临时隧道"
 fi
 
@@ -158,19 +157,10 @@ printf "6. 请输入节点标识 [默认: ICMP9]: "
 read -r NODE_TAG_INPUT
 if [ -z "$NODE_TAG_INPUT" ]; then NODE_TAG="ICMP9"; else NODE_TAG=$NODE_TAG_INPUT; fi
 
-# --- 环境变量导出 ---
-export ICMP9_OS_TYPE="$OS_TYPE"
-export ICMP9_API_KEY="$API_KEY"
-export ICMP9_CLOUDFLARED_TOKEN="$TOKEN"
-export ICMP9_CLOUDFLARED_DOMAIN="$CLOUDFLARED_DOMAIN"
-export ICMP9_IPV6_ONLY="$IPV6_ONLY"
-export ICMP9_CDN_DOMAIN="$CDN_DOMAIN"
-export ICMP9_START_PORT="$START_PORT"
-export ICMP9_NODE_TAG="$NODE_TAG"
-export ICMP9_TUNNEL_MODE="$TUNNEL_MODE"
 
+# --- 4. 安装二进制文件 ---
 install_xray() {
-    local version="${1:-v24.11.30}"
+    local version="v24.11.30"
     local install_path="$WORK_DIR/xray"
     local download_url="https://ghproxy.lvedong.eu.org/https://github.com/XTLS/Xray-core/releases/download/${version}/Xray-linux-${ARCH}.zip"
     
@@ -183,7 +173,7 @@ install_xray() {
 }
 
 install_cloudflared() {
-    local version="${1:-2025.11.1}"
+    local version="2025.11.1"
     local install_path="/usr/bin/cloudflared"    
     local url="https://ghproxy.lvedong.eu.org/https://github.com/cloudflare/cloudflared/releases/download/${version}/cloudflared-linux-${CF_ARCH}"
 
@@ -202,26 +192,115 @@ install_icmp9() {
     chmod +x "$ICMP9"
 }
 
+info "📦 正在安装/更新核心组件..."
 install_xray
 install_cloudflared
 install_icmp9
 
-echo "⚙️ 调用 icmp9 生成配置文件 ..."
+# --- 5. 如果临时隧道，先启动以获取域名 ---
+
+if [ "$TUNNEL_MODE" = "temp" ]; then
+    info "🚀 正在优先启动临时隧道以获取分配的域名..."
+    
+    # 清理旧进程
+    if pgrep -f "cloudflared tunnel --url" > /dev/null; then
+        pkill -f "cloudflared tunnel --url"
+        sleep 2
+        pkill -9 -f "cloudflared tunnel --url" 2>/dev/null
+    fi
+    
+    # 清理日志
+    rm -f /tmp/cloudflared.log
+    touch /tmp/cloudflared.log
+    
+    # 计算 Edge IP 选项
+    EDGE_IP_OPT="auto"
+    if echo "$IPV6_ONLY" | grep -iq "true"; then
+        EDGE_IP_OPT="6"
+    fi
+    
+    # 启动 Cloudflared (使用 58080 端口，后续 Nginx 会监听这个端口)
+    nohup /usr/bin/cloudflared tunnel --edge-ip-version ${EDGE_IP_OPT} --url http://localhost:58080 --no-autoupdate > /tmp/cloudflared.log 2>&1 &
+    CF_PID=$!
+
+    info "⏳ 正在等待 Cloudflare 分配域名 (超时 60s)..."
+    TIMEOUT=60
+    INTERVAL=2
+    ELAPSED=0
+    FOUND_URL=""
+
+    while [ $ELAPSED -lt $TIMEOUT ]; do
+        # 提取域名 (去重并去除 https:// 前缀)
+        FOUND_URL=$(grep -oE "https://[a-zA-Z0-9-]+\.trycloudflare\.com" /tmp/cloudflared.log | head -n 1 | sed 's/https:\/\///')
+        
+        if [ -n "$FOUND_URL" ]; then
+            break
+        fi
+        
+        if ! kill -0 "$CF_PID" 2>/dev/null; then
+             error "❌ Cloudflared 进程意外退出！请检查 /tmp/cloudflared.log"
+             exit 1
+        fi
+        
+        sleep $INTERVAL
+        ELAPSED=$((ELAPSED + INTERVAL))
+    done
+
+    if [ -n "$FOUND_URL" ]; then
+        CLOUDFLARED_DOMAIN="$FOUND_URL"
+        info "✅ 成功获取临时域名: $CLOUDFLARED_DOMAIN"
+    else
+        error "❌ 获取临时域名失败/超时，请检查网络或日志。"
+        exit 1
+    fi
+fi
+
+# --- 6. 导出环境变量并生成配置 ---
+
+info "📝 正在生成配置文件..."
+
+export ICMP9_OS_TYPE="$OS_TYPE"
+export ICMP9_API_KEY="$API_KEY"
+export ICMP9_CLOUDFLARED_TOKEN="$TOKEN"
+export ICMP9_CLOUDFLARED_DOMAIN="$CLOUDFLARED_DOMAIN"
+export ICMP9_IPV6_ONLY="$IPV6_ONLY"
+export ICMP9_CDN_DOMAIN="$CDN_DOMAIN"
+export ICMP9_START_PORT="$START_PORT"
+export ICMP9_NODE_TAG="$NODE_TAG"
+export ICMP9_TUNNEL_MODE="$TUNNEL_MODE"
+
+# 写入环境文件以便持久化或调试
+ENV_FILE="/root/icmp9/icmp9.env"
+
+cat > "$ENV_FILE" <<EOF
+ICMP9_OS_TYPE="$OS_TYPE"
+ICMP9_API_KEY="$API_KEY"
+ICMP9_CLOUDFLARED_TOKEN="$TOKEN"
+ICMP9_CLOUDFLARED_DOMAIN="$CLOUDFLARED_DOMAIN"
+ICMP9_IPV6_ONLY="$IPV6_ONLY"
+ICMP9_CDN_DOMAIN="$CDN_DOMAIN"
+ICMP9_START_PORT="$START_PORT"
+ICMP9_NODE_TAG="$NODE_TAG"
+ICMP9_TUNNEL_MODE="$TUNNEL_MODE"
+EOF
+chmod 600 "$ENV_FILE"
+
+# 调用 icmp9 二进制生成 Nginx/Xray 配置
 if [ -f "$ICMP9" ]; then
     "$ICMP9"
 else
-    echo "❌ 找不到 icmp9 二进制文件"
+    error "❌ 找不到 icmp9 二进制文件"
     exit 1
 fi
 
-# --- 6. 部署服务文件与启动 ---
+# --- 7. 部署服务文件与启动 ---
 info "🚀 正在部署并启动服务..."
 
 # 1. 部署通用配置文件
 if [ -f "${WORK_DIR}/config/nginx.conf" ]; then
     mv "${WORK_DIR}/config/nginx.conf" /etc/nginx/nginx.conf
 else
-    error "❌ Nginx 配置文件不存在"
+    error "❌ Nginx 配置文件生成失败"
     exit 1
 fi
 
@@ -229,163 +308,64 @@ if [ -f "${WORK_DIR}/config/xray.json" ]; then
     mkdir -p "${WORK_DIR}/xray"
     mv "${WORK_DIR}/config/xray.json" "${WORK_DIR}/xray/xray.json"
 else
-    error "❌ Xray 配置文件不存在"
+    error "❌ Xray 配置文件生成失败"
     exit 1
 fi
 
-# 2. 根据系统类型部署服务文件
+# 2. 根据系统类型部署服务
 if [ "$OS_TYPE" = "alpine" ]; then
     # --- Alpine (OpenRC) ---
-
-    # 部署 Xray 服务
     if [ -f "${WORK_DIR}/config/xray.service" ]; then
         mv "${WORK_DIR}/config/xray.service" /etc/init.d/xray
         chmod +x /etc/init.d/xray
-        
-        # Alpine Nginx PID 目录修复
         mkdir -p /run/nginx
         chown nginx:nginx /run/nginx 2>/dev/null
-
         rc-update add xray default
         rc-service xray restart
-    else
-        error "❌ Xray 服务文件不存在"
-        exit 1
     fi
 
-    # 部署 Cloudflared 服务 (仅 固定隧道[Fixed] 模式)
+    # 只有固定隧道才配置服务文件，临时隧道已经在上面 nohup 跑起来了
     if [ "$TUNNEL_MODE" = "fixed" ]; then
         if [ -f "${WORK_DIR}/config/cloudflared.service" ]; then
             mv "${WORK_DIR}/config/cloudflared.service" /etc/init.d/cloudflared
             chmod +x /etc/init.d/cloudflared
             rc-update add cloudflared default
             rc-service cloudflared restart
-        else
-            error "❌ Cloudflared 服务文件不存在"
-            exit 1
         fi
     fi
     
-    # 检测配置无误后再重启 Nginx
     nginx -t && rc-service nginx restart
 
 else
     # --- Debian/Ubuntu (Systemd) ---
-
-    # 部署 Xray 服务
     if [ -f "${WORK_DIR}/config/xray.service" ]; then
         mv "${WORK_DIR}/config/xray.service" /etc/systemd/system/xray.service
         systemctl enable xray
-    else
-        error "❌ Xray 服务文件不存在"
-        exit 1
     fi
 
-    # 部署 Cloudflared 服务 (仅 固定隧道[Fixed] 模式)
     if [ "$TUNNEL_MODE" = "fixed" ]; then
         if [ -f "${WORK_DIR}/config/cloudflared.service" ]; then
             mv "${WORK_DIR}/config/cloudflared.service" /etc/systemd/system/cloudflared.service
             systemctl enable cloudflared
-        else
-            error "❌ Cloudflared 服务文件不存在"
-            exit 1
         fi            
     fi
     
-    # 重载并重启服务
     systemctl daemon-reload
     systemctl restart xray
     [ "$TUNNEL_MODE" = "fixed" ] && systemctl restart cloudflared
-    
-    # 检测配置无误后再重启 Nginx
     nginx -t && systemctl restart nginx
 fi
 
-# 清理配置文件夹
 rm -rf "${WORK_DIR}/config"
 
-# --- 7. 输出节点订阅地址 ---
+# --- 8. 输出结果 ---
+
+SUBSCRIBE_URL="https://${CLOUDFLARED_DOMAIN}/${API_KEY}"
+
+printf "\n${GREEN}✅ 部署完成${NC}\n"
+printf "\n${GREEN}✈️ 节点订阅地址:${NC}\n"
+printf "${YELLOW}%s${NC}\n\n" "$SUBSCRIBE_URL"
 
 if [ "$TUNNEL_MODE" = "temp" ]; then
-    info "⏳ 正在建立临时隧道 (请等待获取 URL，超时 60秒)..."
-    
-    # 检查是否存在旧进程
-    if pgrep -f "cloudflared tunnel --url" > /dev/null; then
-        # 发送终止信号
-        pkill -f "cloudflared tunnel --url"
-        
-        # 等待进程真正退出 (最多等待 5 秒)
-        WAIT_COUNT=0
-        while pgrep -f "cloudflared tunnel --url" > /dev/null; do
-            if [ $WAIT_COUNT -ge 5 ]; then
-                # 如果5秒还没退，强制通过 -9 信号杀掉
-                pkill -9 -f "cloudflared tunnel --url"
-                break
-            fi
-            sleep 1
-            WAIT_COUNT=$((WAIT_COUNT + 1))
-        done
-    fi
-    
-    # 清理日志文件
-    rm -f /tmp/cloudflared.log
-    
-    # 启动 cloudflared 新隧道，记录进程 PID 
-    nohup /usr/bin/cloudflared tunnel --url http://localhost:58080 > /tmp/cloudflared.log 2>&1 &
-    CF_PID=$!
-
-    # 等待分配域名
-    printf "\n${CYAN}⏳ 正在等待 Cloudflare 分配临时域名 (超时60秒)...${NC}\n"
-    printf "${CYAN}   (请稍候，系统正在从日志中抓取订阅链接)${NC}\n"
-    
-    TIMEOUT=60
-    INTERVAL=3
-    ELAPSED=0
-    FOUND_URL=""
-
-    while [ $ELAPSED -lt $TIMEOUT ]; do
-        # 检查进程是否存活
-        if ! kill -0 "$CF_PID" 2>/dev/null; then
-            error "❌ Cloudflared 进程意外退出！"
-            # 打印日志头部以便排查
-            if [ -f /tmp/cloudflared.log ]; then
-                head -n 20 /tmp/cloudflared.log
-            fi
-            exit 1
-        fi
-
-        # 从日志中获取临时隧道域名
-        if [ -f /tmp/cloudflared.log ]; then
-            # 用sed获取第一个匹配的URL
-            FOUND_URL=$(sed -n 's/.*\(https:\/\/[a-zA-Z0-9-]*\.trycloudflare\.com\).*/\1/p' /tmp/cloudflared.log | head -n 1)
-            
-            if [ -n "$FOUND_URL" ]; then
-                break
-            fi
-        fi
-        
-        printf "."
-        sleep $INTERVAL
-        ELAPSED=$((ELAPSED + INTERVAL))
-    done
-    
-    echo ""
-
-    if [ -n "$FOUND_URL" ]; then
-        SUBSCRIBE_URL="${FOUND_URL}/${API_KEY}"
-        printf "\n${GREEN}✅ 临时域名获取成功${NC}\n"
-        printf "\n${GREEN}✈️ 节点订阅地址:${NC}\n"
-        printf "${YELLOW}%s${NC}\n\n" "$SUBSCRIBE_URL"
-    else
-        warn "⚠️ 自动获取失败。以下是错误日志 (/tmp/cloudflared.log)："
-        printf "${RED}--------------------------------------------------${NC}\n"
-        tail -n 10 /tmp/cloudflared.log
-        printf "${RED}--------------------------------------------------${NC}\n"
-    fi
-
-elif [ "$TUNNEL_MODE" = "fixed" ]; then
-    SUBSCRIBE_URL="https://${CLOUDFLARED_DOMAIN}/${API_KEY}"
-    printf "\n${GREEN}✅ 部署完成${NC}\n"
-    printf "\n${GREEN}✈️ 节点订阅地址:${NC}\n"
-    printf "${YELLOW}%s${NC}\n\n" "$SUBSCRIBE_URL"
+    printf "${CYAN}ℹ️ 提示: 临时隧道已在后台运行，重启VPS后域名会变化，需要重新运行脚本获取新订阅地址。${NC}\n"
 fi
