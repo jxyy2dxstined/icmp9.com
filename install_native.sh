@@ -53,7 +53,7 @@ if [ -f /etc/alpine-release ]; then
     info "📦 检测到 Alpine Linux，正在安装依赖..."
     ulimit -n 65535
     apk update
-    apk add --no-cache bash wget curl unzip nano nginx
+    apk add --no-cache bash wget curl unzip nano nginx libqrencode-tools
 
 elif [ -f /etc/os-release ]; then
     . /etc/os-release
@@ -63,7 +63,7 @@ elif [ -f /etc/os-release ]; then
         info "📦 检测到 Debian/Ubuntu，正在安装依赖..."
         ulimit -n 65535
         apt-get update
-        apt-get install -y wget curl unzip nano nginx
+        apt-get install -y wget curl unzip nano nginx qrencode
     fi
 fi
 
@@ -212,7 +212,10 @@ if [ "$TUNNEL_MODE" = "temp" ]; then
     # 清理日志
     rm -f /tmp/cloudflared.log
     touch /tmp/cloudflared.log
-    
+
+    # Cloudflared 服务监听端口
+    CLOUDFLARED_PORT=58080
+
     # 计算 Edge IP 选项
     EDGE_IP_OPT="auto"
     if echo "$IPV6_ONLY" | grep -iq "true"; then
@@ -220,7 +223,7 @@ if [ "$TUNNEL_MODE" = "temp" ]; then
     fi
     
     # 启动 Cloudflared (使用 58080 端口，后续 Nginx 会监听这个端口)
-    nohup /usr/bin/cloudflared tunnel --edge-ip-version ${EDGE_IP_OPT} --url http://localhost:58080 --no-autoupdate > /tmp/cloudflared.log 2>&1 &
+    nohup /usr/bin/cloudflared tunnel --edge-ip-version ${EDGE_IP_OPT} --url http://localhost:${CLOUDFLARED_PORT} --no-autoupdate > /tmp/cloudflared.log 2>&1 &
     CF_PID=$!
 
     info "⏳ 正在等待 Cloudflare 分配域名 (超时 60s)..."
@@ -366,6 +369,13 @@ printf "\n${GREEN}✅ 部署完成${NC}\n"
 printf "\n${GREEN}✈️ 节点订阅地址:${NC}\n"
 printf "${YELLOW}%s${NC}\n\n" "$SUBSCRIBE_URL"
 
+if command -v qrencode >/dev/null 2>&1; then
+    printf "${GREEN}📱 正在生成节点订阅二维码...${NC}\n"
+    qrencode -t ANSIUTF8 -m 1 -l H "${SUBSCRIBE_URL}" || {
+        printf "\n${YELLOW}⚠️ 二维码生成失败${NC}\n"
+    }
+fi
+
 if [ "$TUNNEL_MODE" = "temp" ]; then
-    printf "${CYAN}ℹ️ 提示: 临时隧道已在后台运行，重启VPS后域名会变化，需要重新运行脚本获取新订阅地址。${NC}\n"
+    printf "\n${CYAN}ℹ️ 提示: 临时隧道已在后台运行，重启VPS后域名会变化，需要重新运行脚本获取新订阅地址。${NC}\n\n"
 fi
