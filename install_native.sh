@@ -54,6 +54,7 @@ if [ -f /etc/alpine-release ]; then
     ulimit -n 65535
     apk update
     apk add --no-cache bash wget curl unzip nano nginx libqrencode-tools
+    rc-update add nginx default
 
 elif [ -f /etc/os-release ]; then
     . /etc/os-release

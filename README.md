@@ -29,14 +29,12 @@
 | 服务商 |    系统    |                           VPS配置                            | 部署方式 |
 | :----: | :--------: | :----------------------------------------------------------: | :------: |
 | ICMP9  |  Debian12  |   KVM \| 1核心 \| 256M内存 \| 5G硬盘 \| 1G虚拟内存 \| IPv6   |  Docker  |
-| 56IDC  |  Debian11  | NAT \| LXC \| 1核心 \| 384M内存 \| 1G硬盘 \| 384虚拟内存 \| IPv4 | 原生方式 |
+| 56IDC  |  Debian11  | NAT \| LXC \| 1核心 \| 384M内存 \| 1G硬盘 \| 384M虚拟内存 \| IPv4 | 原生方式 |
 | GV.UY  | Alpine3.22 |  NAT \| LXC \| 1核心 \| 128M内存 \| 1G硬盘 \| IPv4 \| IPv6   | 原生方式 |
 
 ### [可选] 2. Cloudflare固定隧道模式，需要1个可以在Zero Trust创建隧道的Cloudflare账号
 
 <img height="350" alt="image" src="https://github.com/user-attachments/assets/8c9e051a-2286-4d37-bb43-919f57177193" /><br />
-
----
 
 ##  准备工作
 
@@ -224,6 +222,13 @@ curl ip.sb
 date
 ```
 修正方法：问AI关键词 “linux同步系统时间的shell命令”
+
+
+### [可选] 9.一键卸载
+
+```bash
+bash <(wget -qO- https://ghproxy.lvedong.eu.org/https://raw.githubusercontent.com/nap0o/icmp9.com/main/uninstall.sh)  
+```
 
 ## 感谢
 
