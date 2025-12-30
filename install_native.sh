@@ -106,58 +106,150 @@ esac
 # --- 3. 用户配置输入 ---
 printf "\n${YELLOW}>>> 请输入配置参数 <<<${NC}\n"
 
-# API_KEY
-while [ -z "$API_KEY" ]; do
-    printf "1. 请输入 ICMP9_API_KEY (UUID格式, 必填): "
-    read -r API_KEY
-done
+# === 加载历史配置 ===
+ENV_FILE="/root/icmp9/icmp9.env"
+SKIP_INPUTS=false
 
-# 隧道模式
-printf "\n2. 请选择 Cloudflare 隧道模式:\n"
-printf "   [1] 临时隧道 (随机域名，无需配置)\n"
-printf "   [2] 固定隧道 (需要自备域名和Token)\n"
-printf "   请选择 [1/2] (默认: 1): "
-read -r MODE_INPUT
-if [ -z "$MODE_INPUT" ]; then MODE_INPUT="1"; fi
+if [ -f "$ENV_FILE" ]; then
+    # 加载环境变量
+    . "$ENV_FILE"
+    
+    # 将 env 文件中的变量映射为脚本内部使用的默认值
+    DEFAULT_API_KEY="$ICMP9_API_KEY"
+    DEFAULT_MODE="$ICMP9_TUNNEL_MODE"
+    DEFAULT_TOKEN="$ICMP9_CLOUDFLARED_TOKEN"
+    DEFAULT_DOMAIN="$ICMP9_CLOUDFLARED_DOMAIN"
+    DEFAULT_IPV6="$ICMP9_IPV6_ONLY"
+    DEFAULT_CDN="$ICMP9_CDN_DOMAIN"
+    DEFAULT_PORT="$ICMP9_START_PORT"
+    DEFAULT_TAG="$ICMP9_NODE_TAG"
 
-if [ "$MODE_INPUT" = "2" ]; then
-    TUNNEL_MODE="fixed"
-    while [ -z "$CLOUDFLARED_DOMAIN" ]; do
-        printf "   -> 请输入绑定域名 (CLOUDFLARED_DOMAIN) (必填): "
-        read -r CLOUDFLARED_DOMAIN
-    done
-    while [ -z "$TOKEN" ]; do
-        printf "   -> 请输入 Cloudflare Tunnel Token (必填): "
-        read -r TOKEN
-    done
-else
-    TUNNEL_MODE="temp"
-    CLOUDFLARED_DOMAIN=""
-    TOKEN=""               
-    info "   -> 已选择临时隧道"
+    printf "${GREEN}>>> 检测到历史配置文件 ($ENV_FILE) <<<${NC}\n"
+    printf "API_KEY:          ${CYAN}%s${NC}\n" "${DEFAULT_API_KEY:-未设置}"
+    printf "隧道模式:         ${CYAN}%s${NC}\n" "${DEFAULT_MODE:-temp}"
+    if [ "$DEFAULT_MODE" = "fixed" ]; then
+        printf "隧道域名:         ${CYAN}%s${NC}\n" "$DEFAULT_DOMAIN"
+        printf "隧道Token:        ${CYAN}%s${NC}\n" "${DEFAULT_TOKEN:0:5}..."
+    fi
+    printf "优选IP或域名:     ${CYAN}%s${NC}\n" "${DEFAULT_CDN:-icook.tw}"
+    printf "xray起始端口:     ${CYAN}%s${NC}\n" "${DEFAULT_PORT:-39001}"
+    printf "节点标识:         ${CYAN}%s${NC}\n" "${DEFAULT_TAG:-ICMP9}"
+
+    printf "\n是否直接使用上述配置？ [Y/n] (默认: Y): "
+    read -r USE_SAVED_CONFIG
+    # 默认为 Y
+    USE_SAVED_CONFIG=${USE_SAVED_CONFIG:-Y}
+
+    if [[ "$USE_SAVED_CONFIG" =~ ^[yY] ]]; then
+        info ">>> 已加载历史配置，跳过手动输入。"
+        
+        # 直接赋值
+        API_KEY="$DEFAULT_API_KEY"
+        TUNNEL_MODE="$DEFAULT_MODE"
+        CLOUDFLARED_DOMAIN="$DEFAULT_DOMAIN"
+        TOKEN="$DEFAULT_TOKEN"
+        IPV6_ONLY="$DEFAULT_IPV6"
+        CDN_DOMAIN="$DEFAULT_CDN"
+        START_PORT="$DEFAULT_PORT"
+        NODE_TAG="$DEFAULT_TAG"
+        
+        SKIP_INPUTS=true
+    fi
 fi
 
-# VPS是否IPv6 Only
-printf "\n3. VPS是否IPv6 Only (True/False) [默认: False]: "
-read -r IPV6_INPUT
+# === 手动输入部分 ===
+if [ "$SKIP_INPUTS" = "false" ]; then
 
-IPV6_ONLY=$(echo "${IPV6_INPUT:-false}" | tr '[:upper:]' '[:lower:]')
+    # 1. API_KEY 输入
+    while [ -z "$API_KEY" ]; do
+        if [ -n "$DEFAULT_API_KEY" ]; then
+            printf "1. 请输入 ICMP9_API_KEY [默认: %s]: " "$DEFAULT_API_KEY"
+            read -r INPUT_KEY
+            API_KEY="${INPUT_KEY:-$DEFAULT_API_KEY}"
+        else
+            printf "1. 请输入 ICMP9_API_KEY (UUID格式, 必填): "
+            read -r API_KEY
+        fi
+    done
 
-# Cloudflare CDN优选IP或域名
-printf "4. 请输入Cloudflare CDN优选IP或域名 [默认: icook.tw]: "
-read -r CDN_INPUT
-if [ -z "$CDN_INPUT" ]; then CDN_DOMAIN="icook.tw"; else CDN_DOMAIN=$CDN_INPUT; fi
+    # 2. 隧道模式
+    # 根据历史配置决定模式选择的默认值
+    DEFAULT_MODE_INDEX="1"
+    [ "$DEFAULT_MODE" = "fixed" ] && DEFAULT_MODE_INDEX="2"
 
-# Xray监听起始端口
-printf "5. 请输入Xray监听起始端口 [默认: 39001]: "
-read -r PORT_INPUT
-if [ -z "$PORT_INPUT" ]; then START_PORT="39001"; else START_PORT=$PORT_INPUT; fi
+    printf "\n2. 请选择 Cloudflare 隧道模式:\n"
+    printf "   [1] 临时隧道 (随机域名，无需配置)\n"
+    printf "   [2] 固定隧道 (需要自备域名和Token)\n"
+    printf "   请选择 [1/2] (默认: %s): " "$DEFAULT_MODE_INDEX"
+    read -r MODE_INPUT
+    MODE_INPUT=${MODE_INPUT:-$DEFAULT_MODE_INDEX}
 
-# 节点标识
-printf "6. 请输入节点标识 [默认: ICMP9]: "
-read -r NODE_TAG_INPUT
-if [ -z "$NODE_TAG_INPUT" ]; then NODE_TAG="ICMP9"; else NODE_TAG=$NODE_TAG_INPUT; fi
+    if [ "$MODE_INPUT" = "2" ]; then
+        TUNNEL_MODE="fixed"
+        
+        # 如果历史配置是 temp 模式，切换到 fixed 时清空默认值
+        if [ "$DEFAULT_MODE" = "temp" ]; then
+            DEFAULT_DOMAIN=""
+            DEFAULT_TOKEN=""
+        fi
+        
+        # 域名输入 (带默认值)
+        while [ -z "$CLOUDFLARED_DOMAIN" ]; do
+            if [ -n "$DEFAULT_DOMAIN" ]; then
+                printf "   -> 请输入绑定域名 [默认: %s]: " "$DEFAULT_DOMAIN"
+                read -r INPUT_DOMAIN
+                CLOUDFLARED_DOMAIN="${INPUT_DOMAIN:-$DEFAULT_DOMAIN}"
+            else
+                printf "   -> 请输入绑定域名 (CLOUDFLARED_DOMAIN) (必填): "
+                read -r CLOUDFLARED_DOMAIN
+            fi
+        done
+        
+        # Token 输入
+        while [ -z "$TOKEN" ]; do
+            if [ -n "$DEFAULT_TOKEN" ]; then
+                MASKED_TOKEN="${DEFAULT_TOKEN:0:5}......"
+                printf "   -> 请输入 Cloudflare Tunnel Token [默认: %s]: " "$MASKED_TOKEN"
+                read -r INPUT_TOKEN
+                TOKEN="${INPUT_TOKEN:-$DEFAULT_TOKEN}"
+            else
+                printf "   -> 请输入 Cloudflare Tunnel Token (必填): "
+                read -r TOKEN
+            fi
+        done
+    else
+        TUNNEL_MODE="temp"
+        CLOUDFLARED_DOMAIN=""
+        TOKEN=""               
+        info "   -> 已选择临时隧道"
+    fi
 
+    # 3. VPS是否IPv6 Only
+    DEFAULT_IPV6_VAL="${DEFAULT_IPV6:-False}"
+    printf "\n3. VPS是否IPv6 Only (True/False) [默认: %s]: " "$DEFAULT_IPV6_VAL"
+    read -r IPV6_INPUT
+    IPV6_INPUT=${IPV6_INPUT:-$DEFAULT_IPV6_VAL}
+    IPV6_ONLY=$(echo "${IPV6_INPUT}" | tr '[:upper:]' '[:lower:]')
+
+    # 4. Cloudflare CDN优选IP或域名
+    DEFAULT_CDN_VAL="${DEFAULT_CDN:-icook.tw}"
+    printf "4. 请输入Cloudflare CDN优选IP或域名 [默认: %s]: " "$DEFAULT_CDN_VAL"
+    read -r CDN_INPUT
+    CDN_DOMAIN=${CDN_INPUT:-$DEFAULT_CDN_VAL}
+
+    # 5. Xray监听起始端口
+    DEFAULT_PORT_VAL="${DEFAULT_PORT:-39001}"
+    printf "5. 请输入Xray监听起始端口 [默认: %s]: " "$DEFAULT_PORT_VAL"
+    read -r PORT_INPUT
+    START_PORT=${PORT_INPUT:-$DEFAULT_PORT_VAL}
+
+    # 6. 节点标识
+    DEFAULT_TAG_VAL="${DEFAULT_TAG:-ICMP9}"
+    printf "6. 请输入节点标识 [默认: %s]: " "$DEFAULT_TAG_VAL"
+    read -r NODE_TAG_INPUT
+    NODE_TAG=${NODE_TAG_INPUT:-$DEFAULT_TAG_VAL}
+
+fi
 
 # --- 4. 安装二进制文件 ---
 install_xray() {
@@ -274,8 +366,6 @@ export ICMP9_NODE_TAG="$NODE_TAG"
 export ICMP9_TUNNEL_MODE="$TUNNEL_MODE"
 
 # 写入环境文件以便持久化或调试
-ENV_FILE="/root/icmp9/icmp9.env"
-
 cat > "$ENV_FILE" <<EOF
 ICMP9_OS_TYPE="$OS_TYPE"
 ICMP9_API_KEY="$API_KEY"
